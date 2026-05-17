@@ -104,6 +104,18 @@ export type AssessmentRow = {
   gov_five_year_goals: boolean | null
 }
 
+export type TaskRow = {
+  id: string
+  title: string
+  description: string | null
+  axis: string | null
+  type: 'auto' | 'manual'
+  status: 'open' | 'done' | 'skipped'
+  action_type: 'article' | 'vip' | 'course' | 'none'
+  action_ref: string | null
+  due_date: string | null
+}
+
 export interface Profile {
   id: string
   full_name: string | null

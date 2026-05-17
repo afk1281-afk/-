@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import TopBar from '@/components/TopBar'
 import BottomNav from '@/components/BottomNav'
 import { calculateScores, rowToFormData } from '@/lib/scoring'
-import type { AssessmentRow } from '@/lib/types'
+import type { AssessmentRow, TaskRow } from '@/lib/types'
+import { createClient } from '@/lib/supabase/client'
 
 export type { AssessmentRow }
 
@@ -27,6 +28,24 @@ const C = {
 }
 
 const font = 'var(--font-rubik)'
+
+const AXIS_LABELS: Record<string, string> = {
+  incomeStructure: 'מבנה הכנסה',
+  operational:     'יעילות תפעולית',
+  capital:         'הקצאת הון',
+  risk:            'ניהול סיכון',
+  horizon:         'אופק פנסיוני',
+  governance:      'ממשל פנימי',
+}
+
+const AXIS_COLORS: Record<string, string> = {
+  incomeStructure: '#1B5FAD',
+  operational:     '#E8521A',
+  capital:         '#D97706',
+  risk:            '#1B5FAD',
+  horizon:         '#E8521A',
+  governance:      '#1B5FAD',
+}
 
 // ── SCORE ARC ────────────────────────────────────────────────
 const ScoreArc = ({ score = 71 }: { score: number }) => {
@@ -217,13 +236,19 @@ const ChatBot = ({ onClose }: { onClose: () => void }) => {
 }
 
 // ── PROPS ─────────────────────────────────────────────────────
-type Props = { userName?: string | null; assessment?: AssessmentRow | null }
+type Props = {
+  userName?: string | null
+  assessment?: AssessmentRow | null
+  tasks?: TaskRow[]
+  lastMeeting?: { completed_at: string; meeting_number: number } | null
+}
 
 // ── MAIN ─────────────────────────────────────────────────────
-export default function DashboardContent({ userName, assessment }: Props) {
+export default function DashboardContent({ userName, assessment, tasks = [], lastMeeting = null }: Props) {
   const [chatOpen, setChatOpen] = useState(false)
   const [greeting, setGreeting] = useState('שלום')
   const [visible, setVisible]   = useState(false)
+  const [doneIds, setDoneIds]   = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const h = new Date().getHours()
@@ -254,6 +279,23 @@ export default function DashboardContent({ userName, assessment }: Props) {
     scores.metrics.monthsOfSurvival < 3 && { emoji: '🚨', text: 'קרן חירום נמוכה — פחות מ-3 חודשי הוצאות' },
     scores.axes.capital >= 40 && { emoji: '🛡️', text: 'קרן ההשתלמות שלך נזילה — הזדמנות להשקעה' },
   ].filter((a): a is { emoji: string; text: string } => Boolean(a)) : []
+
+  const openTasks = tasks.filter(t => !doneIds.has(t.id))
+
+  const markDone = async (taskId: string) => {
+    setDoneIds(prev => new Set([...prev, taskId]))
+    const supabase = createClient()
+    await supabase.from('tasks').update({ status: 'done', completed_at: new Date().toISOString() }).eq('id', taskId)
+  }
+
+  const meetingDueMs = lastMeeting
+    ? new Date(lastMeeting.completed_at).getTime() + 30 * 24 * 60 * 60 * 1000
+    : null
+  const daysUntil = meetingDueMs !== null
+    ? Math.ceil((meetingDueMs - Date.now()) / (24 * 60 * 60 * 1000))
+    : null
+  const isFirst = !lastMeeting
+  const isDue   = !isFirst && (daysUntil ?? 0) <= 0
 
   const fade = (delay: number): React.CSSProperties => ({
     opacity: visible ? 1 : 0,
@@ -333,8 +375,125 @@ export default function DashboardContent({ userName, assessment }: Props) {
       {/* ── SCROLLABLE CONTENT ── */}
       <div style={{ flex: 1, padding: '20px 16px 100px' }}>
 
+        {/* BOARD MEETING CARD */}
+        <div style={{ ...fade(80), marginBottom: 16 }}>
+          <div style={{
+            background: (isFirst || isDue)
+              ? `linear-gradient(135deg, ${C.orange} 0%, #C0400F 100%)`
+              : `linear-gradient(135deg, ${C.blue} 0%, ${C.blueDark} 100%)`,
+            borderRadius: 18, padding: '18px 20px',
+            boxShadow: (isFirst || isDue)
+              ? '0 6px 24px rgba(232,82,26,0.30)'
+              : '0 6px 24px rgba(27,95,173,0.25)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 26 }}>🏛️</span>
+                <div>
+                  <div style={{ fontFamily: font, fontWeight: 700, fontSize: 16, color: '#fff' }}>ישיבת דירקטוריון</div>
+                  <div style={{ fontFamily: font, fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>
+                    {isFirst ? 'ראשונה' : `ישיבה מס׳ ${(lastMeeting?.meeting_number ?? 0) + 1}`}
+                  </div>
+                </div>
+              </div>
+              <div style={{
+                background: 'rgba(255,255,255,0.2)', borderRadius: 12, padding: '4px 10px',
+                fontFamily: font, fontSize: 11, fontWeight: 700, color: '#fff',
+                border: '1px solid rgba(255,255,255,0.3)', whiteSpace: 'nowrap'
+              }}>
+                {isFirst ? '⚡ חדש' : isDue ? '⚡ הגיע הזמן' : `בעוד ${daysUntil} ימים`}
+              </div>
+            </div>
+            <p style={{ margin: '0 0 14px', fontFamily: font, fontSize: 13, color: 'rgba(255,255,255,0.82)', lineHeight: 1.6 }}>
+              {isFirst
+                ? 'ישיבה של 20 דקות שתגלה מה לתקן ואיך — צעד ראשון וצעד שני ברורים.'
+                : isDue
+                  ? 'הגיע הזמן לישיבה החודשית — עדכנו תובנות ובנו 2–3 משימות חדשות.'
+                  : 'הישיבה הבאה מתוכננת — תזכורת תגיע כשיגיע הזמן.'
+              }
+            </p>
+            {(isFirst || isDue) && (
+              <a href="/board-meeting/session" style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.35)',
+                borderRadius: 12, padding: '10px 18px',
+                fontFamily: font, fontWeight: 700, fontSize: 14, color: '#fff',
+                textDecoration: 'none'
+              }}>
+                {isFirst ? 'התחל את הישיבה הראשונה' : 'פתח ישיבה עכשיו'} →
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* TASKS */}
+        {openTasks.length > 0 && (
+          <div style={{ ...fade(200), marginBottom: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h2 style={{ margin: 0, fontFamily: font, fontSize: 17, color: C.ink, fontWeight: 700 }}>
+                המשימות שלכם
+              </h2>
+              <span style={{
+                background: C.orange, borderRadius: 20, padding: '2px 10px',
+                fontFamily: font, fontSize: 12, fontWeight: 700, color: '#fff'
+              }}>{openTasks.length}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {openTasks.map((task, i) => (
+                <div key={task.id} style={{
+                  ...fade(220 + i * 40),
+                  background: C.bgCard, borderRadius: 14, padding: '14px',
+                  border: `1px solid ${C.border}`,
+                  boxShadow: '0 2px 8px rgba(27,95,173,0.05)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {task.axis && (
+                        <span style={{
+                          background: `${AXIS_COLORS[task.axis] ?? C.blue}22`,
+                          color: AXIS_COLORS[task.axis] ?? C.blue,
+                          borderRadius: 8, padding: '2px 8px',
+                          fontFamily: font, fontSize: 11, fontWeight: 600
+                        }}>
+                          {AXIS_LABELS[task.axis] ?? task.axis}
+                        </span>
+                      )}
+                      <span style={{ fontSize: 13 }}>{task.action_type === 'article' ? '🔄' : '📞'}</span>
+                    </div>
+                    <button onClick={() => markDone(task.id)} style={{
+                      background: 'none', border: `1px solid ${C.border}`,
+                      borderRadius: 8, padding: '3px 10px',
+                      fontFamily: font, fontSize: 11, color: C.inkMute,
+                      cursor: 'pointer'
+                    }}>✓ סיימתי</button>
+                  </div>
+                  <p style={{ margin: '0 0 10px', fontFamily: font, fontSize: 14, color: C.ink, fontWeight: 600, lineHeight: 1.4 }}>
+                    {task.title}
+                  </p>
+                  {task.action_type === 'article' && task.action_ref ? (
+                    <a href={`/learn/${task.action_ref}`} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      background: `${C.blue}12`, border: `1px solid ${C.blue}30`,
+                      borderRadius: 10, padding: '7px 14px',
+                      fontFamily: font, fontSize: 13, fontWeight: 600, color: C.blue,
+                      textDecoration: 'none'
+                    }}>📖 קרא מאמר ›</a>
+                  ) : task.action_type === 'vip' ? (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      background: `${C.orange}12`, border: `1px solid ${C.orange}30`,
+                      borderRadius: 10, padding: '7px 14px',
+                      fontFamily: font, fontSize: 13, fontWeight: 600, color: C.orange
+                    }}>📞 צרו קשר עם הסוכנות</span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* AXES GRID */}
-        <div style={{ ...fade(100), marginBottom: 24 }}>
+        <div style={{ ...fade(420), marginBottom: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <h2 style={{ margin: 0, fontFamily: font, fontSize: 17, color: C.ink, fontWeight: 700 }}>
               6 צירי הבריאות הפיננסית
@@ -351,7 +510,7 @@ export default function DashboardContent({ userName, assessment }: Props) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
             {axes.map((a, i) => (
               <div key={i} style={{
-                ...fade(120 + i * 40),
+                ...fade(440 + i * 40),
                 background: C.bgCard, borderRadius: 14, padding: '12px 10px',
                 border: `1px solid ${C.border}`,
                 boxShadow: '0 2px 8px rgba(27,95,173,0.05)',
@@ -376,14 +535,14 @@ export default function DashboardContent({ userName, assessment }: Props) {
         </div>
 
         {/* ALERTS */}
-        <div style={{ ...fade(400), marginBottom: 24 }}>
+        <div style={{ ...fade(700), marginBottom: 24 }}>
           <h2 style={{ margin: '0 0 12px', fontFamily: font, fontSize: 17, color: C.ink, fontWeight: 700 }}>
             תובנות חשובות עבורך
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {alerts.map((a, i) => (
               <div key={i} style={{
-                ...fade(420 + i * 50),
+                ...fade(720 + i * 50),
                 background: C.bgCard, borderRadius: 14, padding: '13px 14px',
                 border: `1px solid ${C.border}`,
                 display: 'flex', alignItems: 'center', gap: 12,
@@ -399,7 +558,7 @@ export default function DashboardContent({ userName, assessment }: Props) {
         </div>
 
         {/* CHATBOT CTA */}
-        <div style={{ ...fade(580), marginBottom: 16 }}>
+        <div style={{ ...fade(850), marginBottom: 16 }}>
           <div style={{
             background: `linear-gradient(135deg, ${C.blue} 0%, ${C.blueDark} 100%)`,
             borderRadius: 18, padding: '20px', position: 'relative', overflow: 'hidden',
@@ -444,7 +603,7 @@ export default function DashboardContent({ userName, assessment }: Props) {
         </div>
 
         {/* WEALTH MAPPING TEASER */}
-        <div style={{ ...fade(680) }}>
+        <div style={{ ...fade(950) }}>
           <div style={{
             background: C.bgCard, borderRadius: 14, padding: '14px 16px',
             border: `1px solid ${C.border}`,
