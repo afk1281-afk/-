@@ -79,6 +79,31 @@ export interface Scores {
 
 export type SubscriptionStatus = 'trial' | 'active' | 'cancelled' | 'expired'
 
+export type AssessmentRow = {
+  id: string
+  created_at: string
+  salary1: number | null; salary1_type: string | null
+  salary2: number | null; salary2_type: string | null
+  other_income: number | null; has_passive_income: boolean | null
+  expense_housing: number | null; expense_utilities: number | null
+  expense_food: number | null; expense_car: number | null
+  expense_education: number | null; expense_subscriptions: number | null
+  expense_leisure: number | null
+  loan_mortgage: number | null; loan_personal: number | null
+  loan_car: number | null; loan_credit_card: number | null
+  overdraft_frequency: string | null
+  asset_emergency: number | null; asset_study_fund: number | null
+  asset_gemel: number | null; asset_securities: number | null
+  asset_real_estate: number | null
+  pension_knows: boolean | null; pension_monthly_payout: number | null
+  pension_age: number | null; pension_balance: number | null
+  pension_monthly_contribution: number | null
+  risk_life_insurance: boolean | null; risk_disability: boolean | null
+  risk_critical_illness: boolean | null; risk_private_health: boolean | null
+  gov_regular_meetings: boolean | null; gov_written_budget: boolean | null
+  gov_five_year_goals: boolean | null
+}
+
 export interface Profile {
   id: string
   full_name: string | null

@@ -1,4 +1,4 @@
-import type { FormData, Scores } from './types'
+import type { FormData, Scores, AssessmentRow } from './types'
 
 const n = (v: string | number | null | undefined): number =>
   parseFloat(String(v ?? '')) || 0
@@ -133,6 +133,47 @@ export const scoreLabel = (s: number): string =>
 
 export const formatNIS = (v: number): string =>
   '₪' + Math.round(v).toLocaleString('he-IL')
+
+export function rowToFormData(r: AssessmentRow): FormData {
+  const s = (v: number | null): string => v != null ? String(v) : ''
+  return {
+    income: {
+      salary1: s(r.salary1), salary1Type: (r.salary1_type ?? '') as FormData['income']['salary1Type'],
+      salary2: s(r.salary2), salary2Type: (r.salary2_type ?? '') as FormData['income']['salary2Type'],
+      otherIncome: s(r.other_income), hasPassive: r.has_passive_income ?? null,
+    },
+    expenses: {
+      housing: s(r.expense_housing), utilities: s(r.expense_utilities),
+      food: s(r.expense_food), car: s(r.expense_car),
+      education: s(r.expense_education), subscriptions: s(r.expense_subscriptions),
+      leisure: s(r.expense_leisure),
+    },
+    loans: {
+      mortgagePayment: s(r.loan_mortgage), personalLoansPayment: s(r.loan_personal),
+      carLoanPayment: s(r.loan_car), creditCardRevolving: s(r.loan_credit_card),
+      overdraftFrequency: (r.overdraft_frequency ?? '') as FormData['loans']['overdraftFrequency'],
+    },
+    assets: {
+      emergencyFund: s(r.asset_emergency), studyFund: s(r.asset_study_fund),
+      gemel: s(r.asset_gemel), securities: s(r.asset_securities),
+      realEstate: s(r.asset_real_estate),
+    },
+    pension: {
+      knowsPension: r.pension_knows ?? null,
+      monthlyPayout: s(r.pension_monthly_payout), age: s(r.pension_age),
+      currentBalance: s(r.pension_balance), monthlyContribution: s(r.pension_monthly_contribution),
+    },
+    risk: {
+      lifeInsurance: r.risk_life_insurance ?? null, disability: r.risk_disability ?? null,
+      criticalIllness: r.risk_critical_illness ?? null, privateHealth: r.risk_private_health ?? null,
+    },
+    governance: {
+      regularMeetings: r.gov_regular_meetings ?? null,
+      writtenBudget: r.gov_written_budget ?? null,
+      fiveYearGoals: r.gov_five_year_goals ?? null,
+    },
+  }
+}
 
 export const initialFormData: FormData = {
   income: { salary1: '', salary1Type: '', salary2: '', salary2Type: '', otherIncome: '', hasPassive: null },

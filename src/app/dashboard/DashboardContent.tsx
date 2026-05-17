@@ -3,74 +3,10 @@
 import { useState, useEffect } from 'react'
 import TopBar from '@/components/TopBar'
 import BottomNav from '@/components/BottomNav'
-import { calculateScores } from '@/lib/scoring'
-import type { FormData } from '@/lib/types'
+import { calculateScores, rowToFormData } from '@/lib/scoring'
+import type { AssessmentRow } from '@/lib/types'
 
-// ── DB ROW TYPE ───────────────────────────────────────────────
-export type AssessmentRow = {
-  id: string; created_at: string
-  salary1: number | null; salary1_type: string | null
-  salary2: number | null; salary2_type: string | null
-  other_income: number | null; has_passive_income: boolean | null
-  expense_housing: number | null; expense_utilities: number | null
-  expense_food: number | null; expense_car: number | null
-  expense_education: number | null; expense_subscriptions: number | null
-  expense_leisure: number | null
-  loan_mortgage: number | null; loan_personal: number | null
-  loan_car: number | null; loan_credit_card: number | null
-  overdraft_frequency: string | null
-  asset_emergency: number | null; asset_study_fund: number | null
-  asset_gemel: number | null; asset_securities: number | null
-  asset_real_estate: number | null
-  pension_knows: boolean | null; pension_monthly_payout: number | null
-  pension_age: number | null; pension_balance: number | null
-  pension_monthly_contribution: number | null
-  risk_life_insurance: boolean | null; risk_disability: boolean | null
-  risk_critical_illness: boolean | null; risk_private_health: boolean | null
-  gov_regular_meetings: boolean | null; gov_written_budget: boolean | null
-  gov_five_year_goals: boolean | null
-}
-
-function rowToFormData(r: AssessmentRow): FormData {
-  const s = (v: number | null) => v != null ? String(v) : ''
-  return {
-    income: {
-      salary1: s(r.salary1), salary1Type: (r.salary1_type ?? '') as FormData['income']['salary1Type'],
-      salary2: s(r.salary2), salary2Type: (r.salary2_type ?? '') as FormData['income']['salary2Type'],
-      otherIncome: s(r.other_income), hasPassive: r.has_passive_income ?? null,
-    },
-    expenses: {
-      housing: s(r.expense_housing), utilities: s(r.expense_utilities),
-      food: s(r.expense_food), car: s(r.expense_car),
-      education: s(r.expense_education), subscriptions: s(r.expense_subscriptions),
-      leisure: s(r.expense_leisure),
-    },
-    loans: {
-      mortgagePayment: s(r.loan_mortgage), personalLoansPayment: s(r.loan_personal),
-      carLoanPayment: s(r.loan_car), creditCardRevolving: s(r.loan_credit_card),
-      overdraftFrequency: (r.overdraft_frequency ?? '') as FormData['loans']['overdraftFrequency'],
-    },
-    assets: {
-      emergencyFund: s(r.asset_emergency), studyFund: s(r.asset_study_fund),
-      gemel: s(r.asset_gemel), securities: s(r.asset_securities),
-      realEstate: s(r.asset_real_estate),
-    },
-    pension: {
-      knowsPension: r.pension_knows ?? null,
-      monthlyPayout: s(r.pension_monthly_payout), age: s(r.pension_age),
-      currentBalance: s(r.pension_balance), monthlyContribution: s(r.pension_monthly_contribution),
-    },
-    risk: {
-      lifeInsurance: r.risk_life_insurance ?? null, disability: r.risk_disability ?? null,
-      criticalIllness: r.risk_critical_illness ?? null, privateHealth: r.risk_private_health ?? null,
-    },
-    governance: {
-      regularMeetings: r.gov_regular_meetings ?? null,
-      writtenBudget: r.gov_written_budget ?? null,
-      fiveYearGoals: r.gov_five_year_goals ?? null,
-    },
-  }
-}
+export type { AssessmentRow }
 
 // ── DESIGN TOKENS ────────────────────────────────────────────
 const C = {
