@@ -3,6 +3,74 @@
 import { useState, useEffect } from 'react'
 import TopBar from '@/components/TopBar'
 import BottomNav from '@/components/BottomNav'
+import { calculateScores } from '@/lib/scoring'
+import type { FormData } from '@/lib/types'
+
+// ── DB ROW TYPE ───────────────────────────────────────────────
+export type AssessmentRow = {
+  id: string; created_at: string
+  salary1: number | null; salary1_type: string | null
+  salary2: number | null; salary2_type: string | null
+  other_income: number | null; has_passive_income: boolean | null
+  expense_housing: number | null; expense_utilities: number | null
+  expense_food: number | null; expense_car: number | null
+  expense_education: number | null; expense_subscriptions: number | null
+  expense_leisure: number | null
+  loan_mortgage: number | null; loan_personal: number | null
+  loan_car: number | null; loan_credit_card: number | null
+  overdraft_frequency: string | null
+  asset_emergency: number | null; asset_study_fund: number | null
+  asset_gemel: number | null; asset_securities: number | null
+  asset_real_estate: number | null
+  pension_knows: boolean | null; pension_monthly_payout: number | null
+  pension_age: number | null; pension_balance: number | null
+  pension_monthly_contribution: number | null
+  risk_life_insurance: boolean | null; risk_disability: boolean | null
+  risk_critical_illness: boolean | null; risk_private_health: boolean | null
+  gov_regular_meetings: boolean | null; gov_written_budget: boolean | null
+  gov_five_year_goals: boolean | null
+}
+
+function rowToFormData(r: AssessmentRow): FormData {
+  const s = (v: number | null) => v != null ? String(v) : ''
+  return {
+    income: {
+      salary1: s(r.salary1), salary1Type: (r.salary1_type ?? '') as FormData['income']['salary1Type'],
+      salary2: s(r.salary2), salary2Type: (r.salary2_type ?? '') as FormData['income']['salary2Type'],
+      otherIncome: s(r.other_income), hasPassive: r.has_passive_income ?? null,
+    },
+    expenses: {
+      housing: s(r.expense_housing), utilities: s(r.expense_utilities),
+      food: s(r.expense_food), car: s(r.expense_car),
+      education: s(r.expense_education), subscriptions: s(r.expense_subscriptions),
+      leisure: s(r.expense_leisure),
+    },
+    loans: {
+      mortgagePayment: s(r.loan_mortgage), personalLoansPayment: s(r.loan_personal),
+      carLoanPayment: s(r.loan_car), creditCardRevolving: s(r.loan_credit_card),
+      overdraftFrequency: (r.overdraft_frequency ?? '') as FormData['loans']['overdraftFrequency'],
+    },
+    assets: {
+      emergencyFund: s(r.asset_emergency), studyFund: s(r.asset_study_fund),
+      gemel: s(r.asset_gemel), securities: s(r.asset_securities),
+      realEstate: s(r.asset_real_estate),
+    },
+    pension: {
+      knowsPension: r.pension_knows ?? null,
+      monthlyPayout: s(r.pension_monthly_payout), age: s(r.pension_age),
+      currentBalance: s(r.pension_balance), monthlyContribution: s(r.pension_monthly_contribution),
+    },
+    risk: {
+      lifeInsurance: r.risk_life_insurance ?? null, disability: r.risk_disability ?? null,
+      criticalIllness: r.risk_critical_illness ?? null, privateHealth: r.risk_private_health ?? null,
+    },
+    governance: {
+      regularMeetings: r.gov_regular_meetings ?? null,
+      writtenBudget: r.gov_written_budget ?? null,
+      fiveYearGoals: r.gov_five_year_goals ?? null,
+    },
+  }
+}
 
 // ── DESIGN TOKENS ────────────────────────────────────────────
 const C = {
@@ -213,10 +281,10 @@ const ChatBot = ({ onClose }: { onClose: () => void }) => {
 }
 
 // ── PROPS ─────────────────────────────────────────────────────
-type Props = { userName?: string | null }
+type Props = { userName?: string | null; assessment?: AssessmentRow | null }
 
 // ── MAIN ─────────────────────────────────────────────────────
-export default function DashboardContent({ userName }: Props) {
+export default function DashboardContent({ userName, assessment }: Props) {
   const [chatOpen, setChatOpen] = useState(false)
   const [greeting, setGreeting] = useState('שלום')
   const [visible, setVisible]   = useState(false)
@@ -229,23 +297,27 @@ export default function DashboardContent({ userName }: Props) {
     setTimeout(() => setVisible(true), 80)
   }, [])
 
-  const score = 71
-  const scoreLabel = score >= 80 ? 'מצוין' : score >= 65 ? 'טוב' : 'דורש שיפור'
+  const scores = assessment ? calculateScores(rowToFormData(assessment)) : null
+  const score = scores?.overall ?? 0
+  const scoreLabel = score >= 80 ? 'מצוין' : score >= 65 ? 'טוב' : score >= 40 ? 'דורש תשומת לב' : score > 0 ? 'דורש פעולה מיידית' : '—'
 
-  const axes = [
-    { label: 'מבנה הכנסה',     val: 82, color: C.blue },
-    { label: 'יעילות תפעולית', val: 68, color: C.orange },
-    { label: 'הקצאת הון',      val: 55, color: C.amber },
-    { label: 'ניהול סיכון',    val: 74, color: C.blue },
-    { label: 'אופק פנסיוני',   val: 63, color: C.orange },
-    { label: 'ממשל פנימי',     val: 80, color: C.blue },
-  ]
+  const axes = scores ? [
+    { label: 'מבנה הכנסה',     val: scores.axes.incomeStructure, color: C.blue },
+    { label: 'יעילות תפעולית', val: scores.axes.operational,     color: C.orange },
+    { label: 'הקצאת הון',      val: scores.axes.capital,         color: C.amber },
+    { label: 'ניהול סיכון',    val: scores.axes.risk,            color: C.blue },
+    { label: 'אופק פנסיוני',   val: scores.axes.horizon,         color: C.orange },
+    { label: 'ממשל פנימי',     val: scores.axes.governance,      color: C.blue },
+  ] : []
 
-  const alerts = [
-    { emoji: '⚠️', text: 'ביטוח חיים לא מכסה את ההכנסה השנתית הנדרשת', accent: C.amber },
-    { emoji: '📈', text: 'אפשר לחסוך עוד 1,840 ₪/חודש דרך אופטימיזציה', accent: C.blue },
-    { emoji: '🛡️', text: 'קרן ההשתלמות שלך נזילה — הזדמנות להשקעה', accent: C.orange },
-  ]
+  const weakAxes = axes.filter(a => a.val < 60).length
+
+  const alerts = scores ? [
+    scores.axes.risk < 75 && { emoji: '⚠️', text: 'כיסוי ביטוחי חלקי — כדאי לבדוק' },
+    scores.metrics.savingsRate > 0.1 && { emoji: '📈', text: `שיעור החיסכון שלך: ${Math.round(scores.metrics.savingsRate * 100)}% — טוב!` },
+    scores.metrics.monthsOfSurvival < 3 && { emoji: '🚨', text: 'קרן חירום נמוכה — פחות מ-3 חודשי הוצאות' },
+    scores.axes.capital >= 40 && { emoji: '🛡️', text: 'קרן ההשתלמות שלך נזילה — הזדמנות להשקעה' },
+  ].filter(Boolean) : []
 
   const fade = (delay: number): React.CSSProperties => ({
     opacity: visible ? 1 : 0,
@@ -316,7 +388,7 @@ export default function DashboardContent({ userName }: Props) {
               ))}
             </div>
             <p style={{ margin: 0, fontFamily: font, fontSize: 11, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>
-              3 צירים דורשים תשומת לב
+              {weakAxes > 0 ? `${weakAxes} צירים דורשים תשומת לב` : 'כל הצירים תקינים'}
             </p>
           </div>
         </div>
