@@ -317,7 +317,7 @@ export default function DashboardContent({ userName, assessment }: Props) {
     scores.metrics.savingsRate > 0.1 && { emoji: '📈', text: `שיעור החיסכון שלך: ${Math.round(scores.metrics.savingsRate * 100)}% — טוב!` },
     scores.metrics.monthsOfSurvival < 3 && { emoji: '🚨', text: 'קרן חירום נמוכה — פחות מ-3 חודשי הוצאות' },
     scores.axes.capital >= 40 && { emoji: '🛡️', text: 'קרן ההשתלמות שלך נזילה — הזדמנות להשקעה' },
-  ].filter(Boolean) : []
+  ].filter((a): a is { emoji: string; text: string } => Boolean(a)) : []
 
   const fade = (delay: number): React.CSSProperties => ({
     opacity: visible ? 1 : 0,

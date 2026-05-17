@@ -492,7 +492,7 @@ export default function AssessmentPage() {
       await supabase.from('profiles').upsert({
         id: user.id,
         full_name: user.user_metadata?.full_name ?? null,
-        trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        trial_ends_at: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(),
       }, { onConflict: 'id', ignoreDuplicates: true })
 
       // Reset is_current on existing assessments (in case DB trigger wasn't set up)
@@ -551,7 +551,7 @@ export default function AssessmentPage() {
         score_governance: scores.axes.governance,
       })
 
-      router.push('/dashboard')
+      router.push('/board-meeting/first')
     } catch {
       setLoading(false)
     }
