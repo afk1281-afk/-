@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>תכנון תקציב משפחתי</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#4f46e5" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="תקציב" />
+  <link rel="apple-touch-icon" href="icons/icon.svg" />
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-light: #e0e7ff;
+      --success: #10b981;
+      --success-light: #d1fae5;
+      --danger: #ef4444;
+      --danger-light: #fee2e2;
+      --warning: #f59e0b;
+      --warning-light: #fef3c7;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-900: #111827;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+      background: var(--gray-50);
+      color: var(--gray-900);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: white;
+      border-bottom: 1px solid var(--gray-200);
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow);
+    }
+    .header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+    .logo { font-size: 1.25rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+    .month-selector { display: flex; align-items: center; gap: 8px; }
+    .month-selector select {
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: white;
+    }
+
+    /* ── Nav Tabs ── */
+    nav {
+      background: white;
+      border-bottom: 1px solid var(--gray-200);
+    }
+    .nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      gap: 4px;
+      padding: 0 24px;
+    }
+    .tab-btn {
+      padding: 14px 20px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: var(--gray-600);
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+    .tab-btn:hover { color: var(--primary); }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* ── Main ── */
+    main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Cards ── */
+    .card {
+      background: white;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── Summary Widgets ── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .widget {
+      background: white;
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border-right: 4px solid var(--gray-200);
+    }
+    .widget.income  { border-color: var(--success); }
+    .widget.budget  { border-color: var(--primary); }
+    .widget.spent   { border-color: var(--warning); }
+    .widget.balance { border-color: var(--danger); }
+    .widget-label { font-size: 0.8rem; color: var(--gray-600); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .widget-value { font-size: 1.7rem; font-weight: 700; }
+    .widget.income  .widget-value { color: var(--success); }
+    .widget.budget  .widget-value { color: var(--primary); }
+    .widget.spent   .widget-value { color: var(--warning); }
+    .widget.balance .widget-value { color: var(--danger); }
+    .widget-sub { font-size: 0.8rem; color: var(--gray-600); margin-top: 4px; }
+
+    /* ── Forms ── */
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .form-group label { font-size: 0.85rem; font-weight: 500; color: var(--gray-700); }
+    input, select, textarea {
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
+      width: 100%;
+      font-family: inherit;
+    }
+    input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 9px 18px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: #4338ca; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-success:hover { background: #059669; }
+    .btn-danger  { background: var(--danger);  color: white; }
+    .btn-danger:hover  { background: #dc2626; }
+    .btn-ghost { background: var(--gray-100); color: var(--gray-700); }
+    .btn-ghost:hover { background: var(--gray-200); }
+    .btn-sm { padding: 5px 12px; font-size: 0.8rem; }
+
+    /* ── Tables / Lists ── */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th {
+      text-align: right;
+      padding: 10px 12px;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--gray-600);
+      border-bottom: 2px solid var(--gray-200);
+      background: var(--gray-50);
+    }
+    .data-table td { padding: 12px; border-bottom: 1px solid var(--gray-100); font-size: 0.9rem; }
+    .data-table tbody tr:hover { background: var(--gray-50); }
+    .data-table tbody tr:last-child td { border-bottom: none; }
+
+    /* ── Progress Bars ── */
+    .progress-wrap { background: var(--gray-100); border-radius: 99px; height: 8px; overflow: hidden; }
+    .progress-bar { height: 100%; border-radius: 99px; transition: width 0.4s; }
+    .progress-bar.ok       { background: var(--success); }
+    .progress-bar.warning  { background: var(--warning); }
+    .progress-bar.over     { background: var(--danger); }
+
+    /* ── Category Row ── */
+    .cat-row { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--gray-100); }
+    .cat-row:last-child { border-bottom: none; }
+    .cat-icon { font-size: 1.4rem; width: 36px; text-align: center; }
+    .cat-info { flex: 1; }
+    .cat-name { font-weight: 600; font-size: 0.9rem; }
+    .cat-amounts { font-size: 0.8rem; color: var(--gray-600); margin-top: 2px; }
+    .cat-progress { width: 180px; }
+    .cat-pct { font-size: 0.8rem; color: var(--gray-600); text-align: left; min-width: 38px; }
+    .cat-actions { display: flex; gap: 6px; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-success { background: var(--success-light); color: #065f46; }
+    .badge-warning { background: var(--warning-light); color: #92400e; }
+    .badge-danger  { background: var(--danger-light);  color: #991b1b; }
+
+    /* ── Charts ── */
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 700px) { .charts-grid { grid-template-columns: 1fr; } }
+    .chart-box { background: white; border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+    .chart-title { font-weight: 600; margin-bottom: 16px; color: var(--gray-700); }
+
+    /* ── Expense Log ── */
+    .expense-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .expense-item:last-child { border-bottom: none; }
+    .expense-date { font-size: 0.8rem; color: var(--gray-600); min-width: 80px; }
+    .expense-desc { flex: 1; font-size: 0.9rem; }
+    .expense-cat { font-size: 0.75rem; background: var(--primary-light); color: var(--primary); padding: 2px 8px; border-radius: 99px; }
+    .expense-amount { font-weight: 700; color: var(--danger); min-width: 90px; text-align: left; }
+
+    /* ── Empty State ── */
+    .empty { text-align: center; padding: 40px; color: var(--gray-600); }
+    .empty .icon { font-size: 2.5rem; margin-bottom: 10px; }
+
+    /* ── Misc ── */
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .text-success { color: var(--success); }
+    .text-danger  { color: var(--danger);  }
+    .divider { border: none; border-top: 1px solid var(--gray-200); margin: 20px 0; }
+    .tip { background: var(--primary-light); border-radius: 8px; padding: 12px 16px; font-size: 0.85rem; color: var(--primary); margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">💰 תקציב משפחתי</div>
+    <div class="month-selector">
+      <label style="font-size:0.85rem;color:var(--gray-600)">חודש:</label>
+      <select id="monthSelect"></select>
+    </div>
+  </div>
+</header>
+
+<nav>
+  <div class="nav-inner">
+    <button class="tab-btn active" data-tab="dashboard">📊 סקירה כללית</button>
+    <button class="tab-btn" data-tab="income">💵 הכנסות</button>
+    <button class="tab-btn" data-tab="categories">📂 קטגוריות תקציב</button>
+    <button class="tab-btn" data-tab="expenses">🧾 הוצאות</button>
+    <button class="tab-btn" data-tab="reports">📈 דוחות</button>
+  </div>
+</nav>
+
+<main>
+
+  <!-- ═══════════════ DASHBOARD ═══════════════ -->
+  <div id="tab-dashboard" class="tab-panel active">
+    <div class="summary-grid">
+      <div class="widget income">
+        <div class="widget-label">סה"כ הכנסות</div>
+        <div class="widget-value" id="w-income">₪0</div>
+        <div class="widget-sub" id="w-income-sub">0 מקורות</div>
+      </div>
+      <div class="widget budget">
+        <div class="widget-label">תקציב מתוכנן</div>
+        <div class="widget-value" id="w-budget">₪0</div>
+        <div class="widget-sub" id="w-budget-sub">0 קטגוריות</div>
+      </div>
+      <div class="widget spent">
+        <div class="widget-label">הוצאה בפועל</div>
+        <div class="widget-value" id="w-spent">₪0</div>
+        <div class="widget-sub" id="w-spent-sub">0 עסקאות</div>
+      </div>
+      <div class="widget balance">
+        <div class="widget-label">יתרה</div>
+        <div class="widget-value" id="w-balance">₪0</div>
+        <div class="widget-sub" id="w-balance-sub">הכנסות פחות הוצאות</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📂 מצב קטגוריות החודש</div>
+      <div id="dashboard-cats"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-header">
+        <div class="card-title" style="margin:0">🧾 הוצאות אחרונות</div>
+      </div>
+      <div id="dashboard-recent"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ INCOME ═══════════════ -->
+  <div id="tab-income" class="tab-panel">
+    <div class="card">
+      <div class="card-title">➕ הוספת מקור הכנסה</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>תיאור</label>
+          <input id="inc-desc" type="text" placeholder="למשל: משכורת, שכר דירה..." />
+        </div>
+        <div class="form-group">
+          <label>סכום (₪)</label>
+          <input id="inc-amount" type="number" min="0" placeholder="0" />
+        </div>
+        <div class="form-group">
+          <label>סוג</label>
+          <select id="inc-type">
+            <option value="חודשי">חודשי</option>
+            <option value="חד פעמי">חד פעמי</option>
+            <option value="שבועי">שבועי</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <button class="btn btn-success" onclick="addIncome()">+ הוסף</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💵 מקורות הכנסה</div>
+      <div id="income-list"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ CATEGORIES ═══════════════ -->
+  <div id="tab-categories" class="tab-panel">
+    <div class="tip">💡 הגדר את התקציב המתוכנן לכל קטגוריה. הסכום הכולל לא חייב להיות שווה להכנסות.</div>
+    <div class="card">
+      <div class="card-title">➕ הוספת קטגוריה</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>שם הקטגוריה</label>
+          <input id="cat-name" type="text" placeholder="למשל: מזון, חשמל..." />
+        </div>
+        <div class="form-group">
+          <label>אייקון</label>
+          <input id="cat-icon" type="text" placeholder="🛒" maxlength="2" style="width:70px" />
+        </div>
+        <div class="form-group">
+          <label>תקציב חודשי (₪)</label>
+          <input id="cat-budget" type="number" min="0" placeholder="0" />
+        </div>
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" onclick="addCategory()">+ הוסף</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📂 קטגוריות</div>
+      <div id="cat-list"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ EXPENSES ═══════════════ -->
+  <div id="tab-expenses" class="tab-panel">
+    <div class="card">
+      <div class="card-title">➕ רישום הוצאה</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>תיאור</label>
+          <input id="exp-desc" type="text" placeholder="למשל: קניות, חשבון חשמל..." />
+        </div>
+        <div class="form-group">
+          <label>סכום (₪)</label>
+          <input id="exp-amount" type="number" min="0" placeholder="0" />
+        </div>
+        <div class="form-group">
+          <label>קטגוריה</label>
+          <select id="exp-cat"></select>
+        </div>
+        <div class="form-group">
+          <label>תאריך</label>
+          <input id="exp-date" type="date" />
+        </div>
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" onclick="addExpense()">+ הוסף</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-header">
+        <div class="card-title" style="margin:0">🧾 רשימת הוצאות</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="exp-filter-cat" onchange="renderExpenses()" style="font-size:0.85rem;padding:6px 10px">
+            <option value="">כל הקטגוריות</option>
+          </select>
+        </div>
+      </div>
+      <div id="expense-list"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ REPORTS ═══════════════ -->
+  <div id="tab-reports" class="tab-panel">
+    <div class="charts-grid">
+      <div class="chart-box">
+        <div class="chart-title">🍕 הוצאות לפי קטגוריה</div>
+        <canvas id="chart-pie" height="260"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">📊 תקציב מול הוצאה בפועל</div>
+        <canvas id="chart-bar" height="260"></canvas>
+      </div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <div class="card-title">📋 סיכום חודשי</div>
+      <div id="report-summary"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ══════════════════════════════════════════════
+//  State & Persistence
+// ══════════════════════════════════════════════
+const MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+
+function getKey(suffix) { return `budget_${state.month}_${suffix}`; }
+function load(key, def) { try { return JSON.parse(localStorage.getItem(key)) ?? def; } catch { return def; } }
+function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+const now = new Date();
+const state = {
+  month: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`,
+};
+
+function getData() {
+  return {
+    income:     load(getKey('income'),     []),
+    categories: load(getKey('categories'), getDefaultCategories()),
+    expenses:   load(getKey('expenses'),   []),
+  };
+}
+function saveData(data) {
+  save(getKey('income'),     data.income);
+  save(getKey('categories'), data.categories);
+  save(getKey('expenses'),   data.expenses);
+}
+
+function getDefaultCategories() {
+  return [
+    { id: uid(), name: 'דיור', icon: '🏠', budget: 3500 },
+    { id: uid(), name: 'מזון וסופר', icon: '🛒', budget: 2500 },
+    { id: uid(), name: 'תחבורה', icon: '🚗', budget: 1000 },
+    { id: uid(), name: 'חשבונות', icon: '⚡', budget: 800 },
+    { id: uid(), name: 'בריאות', icon: '💊', budget: 500 },
+    { id: uid(), name: 'חינוך', icon: '📚', budget: 600 },
+    { id: uid(), name: 'בידור', icon: '🎬', budget: 400 },
+    { id: uid(), name: 'ביגוד', icon: '👕', budget: 300 },
+  ];
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+// ══════════════════════════════════════════════
+//  Month selector
+// ══════════════════════════════════════════════
+(function initMonths() {
+  const sel = document.getElementById('monthSelect');
+  for (let y = now.getFullYear(); y >= now.getFullYear() - 1; y--) {
+    for (let m = 11; m >= 0; m--) {
+      const val = `${y}-${String(m+1).padStart(2,'0')}`;
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = `${MONTHS[m]} ${y}`;
+      if (val === state.month) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+  sel.onchange = () => { state.month = sel.value; renderAll(); };
+})();
+
+// ══════════════════════════════════════════════
+//  Tab navigation
+// ══════════════════════════════════════════════
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'reports') renderCharts();
+  });
+});
+
+// ══════════════════════════════════════════════
+//  Formatting helpers
+// ══════════════════════════════════════════════
+function fmt(n) { return '₪' + Number(n).toLocaleString('he-IL', {minimumFractionDigits: 0}); }
+function pct(spent, budget) { return budget > 0 ? Math.round((spent / budget) * 100) : 0; }
+function barClass(p) { return p < 75 ? 'ok' : p < 100 ? 'warning' : 'over'; }
+function badgeClass(p) { return p < 75 ? 'badge-success' : p < 100 ? 'badge-warning' : 'badge-danger'; }
+
+// ══════════════════════════════════════════════
+//  Compute totals
+// ══════════════════════════════════════════════
+function computeTotals(data) {
+  const totalIncome = data.income.reduce((s, i) => s + Number(i.amount), 0);
+  const totalBudget = data.categories.reduce((s, c) => s + Number(c.budget), 0);
+  const totalSpent  = data.expenses.reduce((s, e) => s + Number(e.amount), 0);
+  const catSpent = {};
+  data.categories.forEach(c => catSpent[c.id] = 0);
+  data.expenses.forEach(e => { if (catSpent[e.catId] !== undefined) catSpent[e.catId] += Number(e.amount); });
+  return { totalIncome, totalBudget, totalSpent, catSpent };
+}
+
+// ══════════════════════════════════════════════
+//  INCOME CRUD
+// ══════════════════════════════════════════════
+function addIncome() {
+  const desc   = document.getElementById('inc-desc').value.trim();
+  const amount = parseFloat(document.getElementById('inc-amount').value);
+  const type   = document.getElementById('inc-type').value;
+  if (!desc || isNaN(amount) || amount <= 0) return alert('יש למלא תיאור וסכום תקין');
+  const data = getData();
+  data.income.push({ id: uid(), desc, amount, type });
+  saveData(data);
+  document.getElementById('inc-desc').value = '';
+  document.getElementById('inc-amount').value = '';
+  renderAll();
+}
+
+function deleteIncome(id) {
+  const data = getData();
+  data.income = data.income.filter(i => i.id !== id);
+  saveData(data);
+  renderAll();
+}
+
+function renderIncome() {
+  const data = getData();
+  const el = document.getElementById('income-list');
+  if (!data.income.length) {
+    el.innerHTML = '<div class="empty"><div class="icon">💵</div><p>אין מקורות הכנסה עדיין</p></div>';
+    return;
+  }
+  el.innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>תיאור</th><th>סוג</th><th>סכום</th><th></th></tr></thead>
+      <tbody>
+        ${data.income.map(i => `
+          <tr>
+            <td>${i.desc}</td>
+            <td><span class="badge badge-success">${i.type}</span></td>
+            <td style="font-weight:700;color:var(--success)">${fmt(i.amount)}</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="deleteIncome('${i.id}')">🗑</button></td>
+          </tr>
+        `).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="font-weight:700;background:var(--success-light)">
+          <td colspan="2">סה"כ הכנסות</td>
+          <td style="color:var(--success)">${fmt(data.income.reduce((s,i)=>s+Number(i.amount),0))}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>`;
+}
+
+// ══════════════════════════════════════════════
+//  CATEGORIES CRUD
+// ══════════════════════════════════════════════
+function addCategory() {
+  const name   = document.getElementById('cat-name').value.trim();
+  const icon   = document.getElementById('cat-icon').value.trim() || '📁';
+  const budget = parseFloat(document.getElementById('cat-budget').value);
+  if (!name || isNaN(budget) || budget < 0) return alert('יש למלא שם וסכום תקין');
+  const data = getData();
+  data.categories.push({ id: uid(), name, icon, budget });
+  saveData(data);
+  document.getElementById('cat-name').value = '';
+  document.getElementById('cat-icon').value = '';
+  document.getElementById('cat-budget').value = '';
+  renderAll();
+}
+
+function deleteCategory(id) {
+  if (!confirm('למחוק קטגוריה זו? ההוצאות הקשורות אליה יישארו ללא קטגוריה.')) return;
+  const data = getData();
+  data.categories = data.categories.filter(c => c.id !== id);
+  saveData(data);
+  renderAll();
+}
+
+function editCatBudget(id) {
+  const data = getData();
+  const cat = data.categories.find(c => c.id === id);
+  const val = prompt(`תקציב חדש עבור "${cat.name}" (₪):`, cat.budget);
+  if (val === null) return;
+  const num = parseFloat(val);
+  if (isNaN(num) || num < 0) return alert('סכום לא תקין');
+  cat.budget = num;
+  saveData(data);
+  renderAll();
+}
+
+function renderCategories() {
+  const data = getData();
+  const { catSpent } = computeTotals(data);
+  const el = document.getElementById('cat-list');
+  if (!data.categories.length) {
+    el.innerHTML = '<div class="empty"><div class="icon">📂</div><p>אין קטגוריות עדיין</p></div>';
+    return;
+  }
+  el.innerHTML = data.categories.map(c => {
+    const spent  = catSpent[c.id] || 0;
+    const p      = pct(spent, c.budget);
+    const clamp  = Math.min(p, 100);
+    return `
+      <div class="cat-row">
+        <div class="cat-icon">${c.icon}</div>
+        <div class="cat-info">
+          <div class="cat-name">${c.name}</div>
+          <div class="cat-amounts">${fmt(spent)} מתוך ${fmt(c.budget)}</div>
+        </div>
+        <div class="cat-progress">
+          <div class="progress-wrap"><div class="progress-bar ${barClass(p)}" style="width:${clamp}%"></div></div>
+        </div>
+        <div class="cat-pct"><span class="badge ${badgeClass(p)}">${p}%</span></div>
+        <div class="cat-actions">
+          <button class="btn btn-ghost btn-sm" onclick="editCatBudget('${c.id}')">✏️</button>
+          <button class="btn btn-ghost btn-sm" onclick="deleteCategory('${c.id}')">🗑</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+//  EXPENSES CRUD
+// ══════════════════════════════════════════════
+function addExpense() {
+  const desc   = document.getElementById('exp-desc').value.trim();
+  const amount = parseFloat(document.getElementById('exp-amount').value);
+  const catId  = document.getElementById('exp-cat').value;
+  const date   = document.getElementById('exp-date').value;
+  if (!desc || isNaN(amount) || amount <= 0) return alert('יש למלא תיאור וסכום תקין');
+  if (!date) return alert('יש לבחור תאריך');
+  const data = getData();
+  data.expenses.push({ id: uid(), desc, amount, catId, date });
+  data.expenses.sort((a, b) => b.date.localeCompare(a.date));
+  saveData(data);
+  document.getElementById('exp-desc').value = '';
+  document.getElementById('exp-amount').value = '';
+  document.getElementById('exp-date').value = new Date().toISOString().split('T')[0];
+  renderAll();
+}
+
+function deleteExpense(id) {
+  const data = getData();
+  data.expenses = data.expenses.filter(e => e.id !== id);
+  saveData(data);
+  renderAll();
+}
+
+function renderExpenses() {
+  const data = getData();
+  const catMap = Object.fromEntries(data.categories.map(c => [c.id, c]));
+  const filterCat = document.getElementById('exp-filter-cat').value;
+
+  // populate filter dropdown
+  const filterSel = document.getElementById('exp-filter-cat');
+  const prev = filterSel.value;
+  filterSel.innerHTML = '<option value="">כל הקטגוריות</option>' +
+    data.categories.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+  filterSel.value = prev;
+
+  // populate expense cat select
+  const expCatSel = document.getElementById('exp-cat');
+  const prevCat = expCatSel.value;
+  expCatSel.innerHTML = data.categories.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+  if (prevCat) expCatSel.value = prevCat;
+
+  const filtered = filterCat ? data.expenses.filter(e => e.catId === filterCat) : data.expenses;
+  const el = document.getElementById('expense-list');
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty"><div class="icon">🧾</div><p>אין הוצאות עדיין</p></div>';
+    return;
+  }
+  el.innerHTML = filtered.map(e => {
+    const cat = catMap[e.catId];
+    const dateObj = new Date(e.date);
+    const dateStr = dateObj.toLocaleDateString('he-IL');
+    return `
+      <div class="expense-item">
+        <div class="expense-date">${dateStr}</div>
+        <div class="expense-desc">${e.desc}</div>
+        ${cat ? `<div class="expense-cat">${cat.icon} ${cat.name}</div>` : ''}
+        <div class="expense-amount">${fmt(e.amount)}</div>
+        <button class="btn btn-ghost btn-sm" onclick="deleteExpense('${e.id}')">🗑</button>
+      </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+//  DASHBOARD render
+// ══════════════════════════════════════════════
+function renderDashboard() {
+  const data = getData();
+  const { totalIncome, totalBudget, totalSpent, catSpent } = computeTotals(data);
+  const balance = totalIncome - totalSpent;
+
+  document.getElementById('w-income').textContent  = fmt(totalIncome);
+  document.getElementById('w-income-sub').textContent = `${data.income.length} מקורות`;
+  document.getElementById('w-budget').textContent  = fmt(totalBudget);
+  document.getElementById('w-budget-sub').textContent = `${data.categories.length} קטגוריות`;
+  document.getElementById('w-spent').textContent   = fmt(totalSpent);
+  document.getElementById('w-spent-sub').textContent = `${data.expenses.length} עסקאות`;
+  document.getElementById('w-balance').textContent = fmt(Math.abs(balance));
+  document.getElementById('w-balance-sub').textContent = balance >= 0 ? '✅ עודף' : '⚠️ גרעון';
+  document.getElementById('w-balance').style.color = balance >= 0 ? 'var(--success)' : 'var(--danger)';
+
+  // cats
+  const catEl = document.getElementById('dashboard-cats');
+  if (!data.categories.length) {
+    catEl.innerHTML = '<div class="empty"><div class="icon">📂</div><p>הוסף קטגוריות כדי לראות את מצב התקציב</p></div>';
+  } else {
+    catEl.innerHTML = data.categories.map(c => {
+      const spent = catSpent[c.id] || 0;
+      const p     = pct(spent, c.budget);
+      const clamp = Math.min(p, 100);
+      return `
+        <div class="cat-row">
+          <div class="cat-icon">${c.icon}</div>
+          <div class="cat-info">
+            <div class="cat-name">${c.name}</div>
+            <div class="cat-amounts">${fmt(spent)} מתוך ${fmt(c.budget)}</div>
+          </div>
+          <div class="cat-progress">
+            <div class="progress-wrap"><div class="progress-bar ${barClass(p)}" style="width:${clamp}%"></div></div>
+          </div>
+          <div class="cat-pct"><span class="badge ${badgeClass(p)}">${p}%</span></div>
+        </div>`;
+    }).join('');
+  }
+
+  // recent expenses
+  const recentEl = document.getElementById('dashboard-recent');
+  const catMap = Object.fromEntries(data.categories.map(c => [c.id, c]));
+  const recent = data.expenses.slice(0, 5);
+  if (!recent.length) {
+    recentEl.innerHTML = '<div class="empty"><div class="icon">🧾</div><p>אין הוצאות עדיין החודש</p></div>';
+  } else {
+    recentEl.innerHTML = recent.map(e => {
+      const cat = catMap[e.catId];
+      const dateStr = new Date(e.date).toLocaleDateString('he-IL');
+      return `
+        <div class="expense-item">
+          <div class="expense-date">${dateStr}</div>
+          <div class="expense-desc">${e.desc}</div>
+          ${cat ? `<div class="expense-cat">${cat.icon} ${cat.name}</div>` : ''}
+          <div class="expense-amount">${fmt(e.amount)}</div>
+        </div>`;
+    }).join('');
+  }
+}
+
+// ══════════════════════════════════════════════
+//  CHARTS
+// ══════════════════════════════════════════════
+let pieChart = null;
+let barChart = null;
+
+function renderCharts() {
+  const data = getData();
+  const { catSpent } = computeTotals(data);
+
+  const COLORS = ['#4f46e5','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#64748b'];
+
+  // Pie
+  const pieLabels = data.categories.map(c => `${c.icon} ${c.name}`);
+  const pieData   = data.categories.map(c => catSpent[c.id] || 0);
+
+  if (pieChart) pieChart.destroy();
+  const pieCtx = document.getElementById('chart-pie').getContext('2d');
+  pieChart = new Chart(pieCtx, {
+    type: 'doughnut',
+    data: { labels: pieLabels, datasets: [{ data: pieData, backgroundColor: COLORS, borderWidth: 2 }] },
+    options: {
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } },
+      cutout: '55%',
+    }
+  });
+
+  // Bar
+  if (barChart) barChart.destroy();
+  const barCtx = document.getElementById('chart-bar').getContext('2d');
+  barChart = new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels: data.categories.map(c => c.name),
+      datasets: [
+        { label: 'תקציב', data: data.categories.map(c => c.budget), backgroundColor: '#e0e7ff', borderColor: '#4f46e5', borderWidth: 1 },
+        { label: 'בפועל', data: data.categories.map(c => catSpent[c.id] || 0), backgroundColor: '#fef3c7', borderColor: '#f59e0b', borderWidth: 1 },
+      ]
+    },
+    options: {
+      plugins: { legend: { position: 'bottom' } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => '₪' + v.toLocaleString() } } }
+    }
+  });
+
+  // Summary table
+  const { totalIncome, totalBudget, totalSpent } = computeTotals(data);
+  const balance = totalIncome - totalSpent;
+  const catMap  = Object.fromEntries(data.categories.map(c => [c.id, c]));
+  document.getElementById('report-summary').innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>קטגוריה</th><th>תקציב</th><th>בפועל</th><th>סטייה</th><th>%</th></tr></thead>
+      <tbody>
+        ${data.categories.map(c => {
+          const spent = catSpent[c.id] || 0;
+          const diff  = c.budget - spent;
+          const p     = pct(spent, c.budget);
+          return `<tr>
+            <td>${c.icon} ${c.name}</td>
+            <td>${fmt(c.budget)}</td>
+            <td>${fmt(spent)}</td>
+            <td class="${diff >= 0 ? 'text-success' : 'text-danger'}">${diff >= 0 ? '+' : ''}${fmt(diff)}</td>
+            <td><span class="badge ${badgeClass(p)}">${p}%</span></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="font-weight:700;background:var(--gray-50)">
+          <td>סה"כ</td>
+          <td>${fmt(totalBudget)}</td>
+          <td>${fmt(totalSpent)}</td>
+          <td class="${balance >= 0 ? 'text-success' : 'text-danger'}">${balance >= 0 ? '+' : ''}${fmt(balance)} (יתרת הכנסות)</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>`;
+}
+
+// ══════════════════════════════════════════════
+//  RENDER ALL
+// ══════════════════════════════════════════════
+function renderAll() {
+  renderDashboard();
+  renderIncome();
+  renderCategories();
+  renderExpenses();
+}
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+document.getElementById('exp-date').value = new Date().toISOString().split('T')[0];
+renderAll();
+
+// PWA – register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js');
+}
+</script>
+</body>
+</html>

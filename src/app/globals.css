@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  /* Backgrounds */
+  --color-bg: #F0F4FA;
+  --color-bg-card: #FFFFFF;
+
+  /* Borders */
+  --color-border: #DDE4EF;
+
+  /* Text */
+  --color-ink: #0F1923;
+  --color-ink-soft: #4A5A6E;
+  --color-ink-muted: #8A9AAB;
+
+  /* Brand — מהלוגו */
+  --color-blue: #1B5FAD;
+  --color-blue-soft: #2A75CC;
+  --color-orange: #E8521A;
+  --color-orange-soft: #FF6A30;
+
+  /* Status */
+  --color-success: #16A34A;
+  --color-warning: #D97706;
+  --color-danger: #DC2626;
+
+  /* Font */
+  --font-main: var(--font-rubik);
+}
+
+html {
+  direction: rtl;
+}
+
+body {
+  background-color: #F0F4FA;
+  color: #0F1923;
+  font-family: var(--font-rubik), 'Heebo', system-ui, sans-serif;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #A0ADB8;
+}
+
+.num {
+  direction: ltr;
+  display: inline-block;
+}
